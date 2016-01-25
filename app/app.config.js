@@ -25,17 +25,9 @@ System.register(["angular2/core"], function(exports_1) {
                 ConfigService.prototype.getConfig = function () {
                     var params = this.parseUrl();
                     return {
-                        counter: parseInt(params['counter']) || 1800,
+                        counter: parseInt(params['counter']) || 1500,
                         sprint: !!params['sprint']
                     };
-                };
-                ConfigService.prototype.parseInt = function (str) {
-                    try {
-                        return Number.parseInt(str);
-                    }
-                    catch (e) {
-                        return 0;
-                    }
                 };
                 ConfigService.prototype.parseUrl = function () {
                     var urlParams = {};

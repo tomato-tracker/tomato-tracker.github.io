@@ -30,16 +30,21 @@ System.register(['angular2/core', "./app.clock.service", "./app.config"], functi
                     this.clockService = clockService;
                     this.configService = configService;
                     this.interval = null;
+                    this.today = moment().format('YYYY-MM-DD');
                     this.clockStarted = false;
                     this.logs = [
                         {
                             id: this.createId(),
-                            date: new Date(),
-                            text: 'Example, you can highlight something !important or use #hashtag in your messages',
-                            template: "Example, you can highlight something <span class=\"important\">!important</span> or use <span class=\"tag\">#hashtag</span> in your messages"
+                            date: moment(),
+                            period: 777,
+                            text: '',
+                            template: "Example, <span class=\"task\">!tasks</span> and <span class=\"tag\">#hashtags</span> will be highlighted."
                         }
                     ];
                     this.logText = '';
+                    this.groupedTasks = {};
+                    this.tasks = [];
+                    this.summary = 0;
                     this.audio = new Audio('./assets/sound.mp3');
                     this.config = configService.getConfig();
                     this.createClock();
@@ -60,45 +65,75 @@ System.register(['angular2/core', "./app.clock.service", "./app.config"], functi
                 ClockComponent.prototype.playSound = function () {
                     this.audio.play();
                 };
+                ClockComponent.prototype.addOrUpdateTask = function (period, words) {
+                    var _this = this;
+                    words.forEach(function (s) {
+                        _this.groupedTasks[s] = _this.groupedTasks[s] || { value: 0, count: 0, name: null };
+                        _this.groupedTasks[s].value += period;
+                        _this.groupedTasks[s].count++;
+                        _this.groupedTasks[s].name = s;
+                    });
+                };
                 ClockComponent.prototype.createTemplate = function (source) {
+                    var symbols = {};
+                    var result = { value: null, symbols: symbols };
                     var delimiter = ' ';
-                    return source
+                    result.value = source
                         .split(delimiter)
                         .map(function (word) {
                         if (word.indexOf('#') == 0) {
                             return '<span class="tag">' + word + '</span>';
                         }
                         else if (word.indexOf('!') == 0) {
-                            return '<span class="important">' + word + '</span>';
+                            symbols[word] = true;
+                            return '<span class="task">' + word + '</span>';
                         }
                         return word;
                     }).join(delimiter);
+                    return result;
                 };
                 ClockComponent.prototype.createId = function () {
                     return Date.now().toString();
+                };
+                ClockComponent.prototype.updateSummary = function (period) {
+                    this.summary += period;
+                };
+                ClockComponent.prototype.getPeriod = function () {
+                    var time = this.clock.getTime();
+                    return this.config.counter - time;
+                };
+                ClockComponent.prototype.updateTasks = function () {
+                    var _this = this;
+                    this.tasks = Object.keys(this.groupedTasks).map(function (s) { return _this.groupedTasks[s]; });
                 };
                 ClockComponent.prototype.onSaveLog = function () {
                     if (this.logText) {
                         var id = this.createId();
                         var template = this.createTemplate(this.logText);
-                        var log = { id: id, date: new Date(), text: this.logText, template: template };
+                        var period = this.getPeriod();
+                        var log = { id: id, date: moment(), period: period, text: this.logText, template: template.value };
                         this.logs.unshift(log);
                         this.logText = '';
-                        if (this.interval !== null) {
-                            this.onResetTimer();
-                        }
+                        this.onResetTimer();
+                        this.updateSummary(period);
+                        this.addOrUpdateTask(period, Object.keys(template.symbols));
+                        this.updateTasks();
                     }
                 };
-                ClockComponent.prototype.onDeleteLog = function (id) {
+                ClockComponent.prototype.onDeleteLog = function (log) {
                     var index = -1;
                     this.logs.forEach(function (x, i) {
-                        if (x.id === id) {
+                        if (x.id === log.id) {
                             index = i;
                         }
                     });
                     if (index !== -1) {
                         this.logs.splice(index, 1);
                     }
+                    this.updateTasks();
+                };
+                ClockComponent.prototype.onCopyLog = function (text) {
+                    this.logText = text;
                 };
                 ClockComponent.prototype.onStartTimer = function () {
                     if (!this.clockStarted) {
