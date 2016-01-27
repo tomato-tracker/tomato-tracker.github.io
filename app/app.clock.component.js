@@ -1,7 +1,7 @@
 /**
  * Created by artem.kolosovich on 21.01.2016.
  */
-System.register(['angular2/core', "./app.clock.service", "./app.config"], function(exports_1) {
+System.register(['angular2/core', "./app.clock.service", "./app.config", './app.chart.controller'], function(exports_1) {
     var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
         var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
         if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -11,7 +11,7 @@ System.register(['angular2/core', "./app.clock.service", "./app.config"], functi
     var __metadata = (this && this.__metadata) || function (k, v) {
         if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
     };
-    var core_1, app_clock_service_1, app_config_1;
+    var core_1, app_clock_service_1, app_config_1, app_chart_controller_1;
     var ClockComponent;
     return {
         setters:[
@@ -23,12 +23,16 @@ System.register(['angular2/core', "./app.clock.service", "./app.config"], functi
             },
             function (app_config_1_1) {
                 app_config_1 = app_config_1_1;
+            },
+            function (app_chart_controller_1_1) {
+                app_chart_controller_1 = app_chart_controller_1_1;
             }],
         execute: function() {
             ClockComponent = (function () {
-                function ClockComponent(clockService, configService) {
+                function ClockComponent(clockService, configService, chartController) {
                     this.clockService = clockService;
                     this.configService = configService;
+                    this.chartController = chartController;
                     this.interval = null;
                     this.today = moment().format('YYYY-MM-DD');
                     this.clockStarted = false;
@@ -45,9 +49,12 @@ System.register(['angular2/core', "./app.clock.service", "./app.config"], functi
                     this.groupedTasks = {};
                     this.tasks = [];
                     this.summary = 0;
+                    this.moment = null;
                     this.audio = new Audio('./assets/sound.mp3');
                     this.config = configService.getConfig();
                     this.createClock();
+                    this.chartController.createBar(['!tasks'], [777]);
+                    this.moment = moment;
                 }
                 ClockComponent.prototype.createClock = function () {
                     var _this = this;
@@ -104,7 +111,10 @@ System.register(['angular2/core', "./app.clock.service", "./app.config"], functi
                 };
                 ClockComponent.prototype.updateTasks = function () {
                     var _this = this;
-                    this.tasks = Object.keys(this.groupedTasks).map(function (s) { return _this.groupedTasks[s]; });
+                    var keys = Object.keys(this.groupedTasks);
+                    var values = keys.map(function (s) { return _this.groupedTasks[s].value; });
+                    this.tasks = keys.map(function (s) { return _this.groupedTasks[s]; });
+                    this.chartController.createBar(keys, values);
                 };
                 ClockComponent.prototype.onSaveLog = function () {
                     if (this.logText) {
@@ -160,9 +170,9 @@ System.register(['angular2/core', "./app.clock.service", "./app.config"], functi
                     core_1.Component({
                         selector: 'app',
                         templateUrl: './app/template.html',
-                        providers: [app_clock_service_1.ClockService, app_config_1.ConfigService]
+                        providers: [app_clock_service_1.ClockService, app_config_1.ConfigService, app_chart_controller_1.ChartController]
                     }), 
-                    __metadata('design:paramtypes', [app_clock_service_1.ClockService, app_config_1.ConfigService])
+                    __metadata('design:paramtypes', [app_clock_service_1.ClockService, app_config_1.ConfigService, app_chart_controller_1.ChartController])
                 ], ClockComponent);
                 return ClockComponent;
             })();

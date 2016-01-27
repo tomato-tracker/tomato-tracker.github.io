@@ -26,7 +26,8 @@ System.register(["angular2/core"], function(exports_1) {
                     var params = this.parseUrl();
                     return {
                         counter: parseInt(params['counter']) || 1500,
-                        sprint: !!params['sprint']
+                        sprint: !!params['sprint'],
+                        showBar: !!params['showBar']
                     };
                 };
                 ConfigService.prototype.parseUrl = function () {
