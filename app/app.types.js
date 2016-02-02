@@ -8,4 +8,4 @@ System.register([], function(exports_1) {
         }
     }
 });
-//# sourceMappingURL=app.clock.js.map
+//# sourceMappingURL=app.types.js.map

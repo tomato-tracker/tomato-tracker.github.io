@@ -1,7 +1,7 @@
 /**
  * Created by artem.kolosovich on 21.01.2016.
  */
-System.register(['angular2/core', "./app.clock.service", "./app.config", './app.chart.controller'], function(exports_1) {
+System.register(['angular2/core', "./app.clock.service", "./app.config.service"], function(exports_1) {
     var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
         var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
         if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -11,7 +11,7 @@ System.register(['angular2/core', "./app.clock.service", "./app.config", './app.
     var __metadata = (this && this.__metadata) || function (k, v) {
         if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
     };
-    var core_1, app_clock_service_1, app_config_1, app_chart_controller_1;
+    var core_1, app_clock_service_1, app_config_service_1;
     var ClockComponent;
     return {
         setters:[
@@ -21,18 +21,14 @@ System.register(['angular2/core', "./app.clock.service", "./app.config", './app.
             function (app_clock_service_1_1) {
                 app_clock_service_1 = app_clock_service_1_1;
             },
-            function (app_config_1_1) {
-                app_config_1 = app_config_1_1;
-            },
-            function (app_chart_controller_1_1) {
-                app_chart_controller_1 = app_chart_controller_1_1;
+            function (app_config_service_1_1) {
+                app_config_service_1 = app_config_service_1_1;
             }],
         execute: function() {
             ClockComponent = (function () {
-                function ClockComponent(clockService, configService, chartController) {
+                function ClockComponent(clockService, configService) {
                     this.clockService = clockService;
                     this.configService = configService;
-                    this.chartController = chartController;
                     this.interval = null;
                     this.today = moment().format('YYYY-MM-DD');
                     this.clockStarted = false;
@@ -42,18 +38,20 @@ System.register(['angular2/core', "./app.clock.service", "./app.config", './app.
                             date: moment(),
                             period: 777,
                             text: '',
-                            template: "Example, <span class=\"task\">!tasks</span> and <span class=\"tag\">#hashtags</span> will be highlighted."
+                            template: {
+                                value: "Example, <span class=\"task\">!tasks</span> and <span class=\"tag\">#hashtags</span> are highlighted.",
+                                symbols: { '!tasks': true }
+                            }
                         }
                     ];
                     this.logText = '';
                     this.groupedTasks = {};
                     this.tasks = [];
-                    this.summary = 0;
+                    this.summary = 777;
                     this.moment = null;
                     this.audio = new Audio('./assets/sound.mp3');
                     this.config = configService.getConfig();
                     this.createClock();
-                    this.chartController.createBar(['!tasks'], [777]);
                     this.moment = moment;
                 }
                 ClockComponent.prototype.createClock = function () {
@@ -79,11 +77,14 @@ System.register(['angular2/core', "./app.clock.service", "./app.config", './app.
                         _this.groupedTasks[s].value += period;
                         _this.groupedTasks[s].count++;
                         _this.groupedTasks[s].name = s;
+                        if (_this.groupedTasks[s].value <= 0) {
+                            delete _this.groupedTasks[s];
+                        }
                     });
                 };
                 ClockComponent.prototype.createTemplate = function (source) {
-                    var symbols = {};
-                    var result = { value: null, symbols: symbols };
+                    var symbolMap = {};
+                    var result = { value: null, symbols: symbolMap };
                     var delimiter = ' ';
                     result.value = source
                         .split(delimiter)
@@ -92,7 +93,7 @@ System.register(['angular2/core', "./app.clock.service", "./app.config", './app.
                             return '<span class="tag">' + word + '</span>';
                         }
                         else if (word.indexOf('!') == 0) {
-                            symbols[word] = true;
+                            symbolMap[word] = true;
                             return '<span class="task">' + word + '</span>';
                         }
                         return word;
@@ -112,16 +113,14 @@ System.register(['angular2/core', "./app.clock.service", "./app.config", './app.
                 ClockComponent.prototype.updateTasks = function () {
                     var _this = this;
                     var keys = Object.keys(this.groupedTasks);
-                    var values = keys.map(function (s) { return _this.groupedTasks[s].value; });
                     this.tasks = keys.map(function (s) { return _this.groupedTasks[s]; });
-                    this.chartController.createBar(keys, values);
                 };
                 ClockComponent.prototype.onSaveLog = function () {
                     if (this.logText) {
                         var id = this.createId();
                         var template = this.createTemplate(this.logText);
                         var period = this.getPeriod();
-                        var log = { id: id, date: moment(), period: period, text: this.logText, template: template.value };
+                        var log = { id: id, date: moment(), period: period, text: this.logText, template: template };
                         this.logs.unshift(log);
                         this.logText = '';
                         this.onResetTimer();
@@ -140,10 +139,18 @@ System.register(['angular2/core', "./app.clock.service", "./app.config", './app.
                     if (index !== -1) {
                         this.logs.splice(index, 1);
                     }
+                    this.addOrUpdateTask(-log.period, Object.keys(log.template.symbols));
                     this.updateTasks();
+                    this.updateSummary(-log.period);
                 };
                 ClockComponent.prototype.onCopyLog = function (text) {
                     this.logText = text;
+                };
+                /**
+                 * Time methods
+                 */
+                ClockComponent.prototype.onGetTime = function (value, metric) {
+                    return moment.duration(value, metric || 'seconds').asHours().toFixed(2);
                 };
                 ClockComponent.prototype.onStartTimer = function () {
                     if (!this.clockStarted) {
@@ -170,9 +177,9 @@ System.register(['angular2/core', "./app.clock.service", "./app.config", './app.
                     core_1.Component({
                         selector: 'app',
                         templateUrl: './app/template.html',
-                        providers: [app_clock_service_1.ClockService, app_config_1.ConfigService, app_chart_controller_1.ChartController]
+                        providers: [app_clock_service_1.ClockService, app_config_service_1.ConfigService]
                     }), 
-                    __metadata('design:paramtypes', [app_clock_service_1.ClockService, app_config_1.ConfigService, app_chart_controller_1.ChartController])
+                    __metadata('design:paramtypes', [app_clock_service_1.ClockService, app_config_service_1.ConfigService])
                 ], ClockComponent);
                 return ClockComponent;
             })();
