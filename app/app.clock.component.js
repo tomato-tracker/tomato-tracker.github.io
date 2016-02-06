@@ -1,7 +1,7 @@
 /**
  * Created by artem.kolosovich on 21.01.2016.
  */
-System.register(['angular2/core', "./app.clock.service", "./app.config.service"], function(exports_1) {
+System.register(['angular2/core', "./app.clock.service", "./app.config.service", "./app.notification.service"], function(exports_1) {
     var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
         var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
         if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -11,7 +11,7 @@ System.register(['angular2/core', "./app.clock.service", "./app.config.service"]
     var __metadata = (this && this.__metadata) || function (k, v) {
         if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
     };
-    var core_1, app_clock_service_1, app_config_service_1;
+    var core_1, app_clock_service_1, app_config_service_1, app_notification_service_1;
     var ClockComponent;
     return {
         setters:[
@@ -23,58 +23,38 @@ System.register(['angular2/core', "./app.clock.service", "./app.config.service"]
             },
             function (app_config_service_1_1) {
                 app_config_service_1 = app_config_service_1_1;
+            },
+            function (app_notification_service_1_1) {
+                app_notification_service_1 = app_notification_service_1_1;
             }],
         execute: function() {
             ClockComponent = (function () {
                 function ClockComponent(clockService, configService) {
                     this.clockService = clockService;
                     this.configService = configService;
-                    this.interval = null;
-                    this.today = moment().format('YYYY-MM-DD');
-                    this.clockStarted = false;
-                    this.logs = [
-                        {
-                            id: this.createId(),
-                            date: moment(),
-                            period: 777,
-                            text: '',
-                            template: {
-                                value: "Example, <span class=\"task\">!tasks</span> and <span class=\"tag\">#hashtags</span> are highlighted.",
-                                symbols: { '!tasks': true }
-                            }
-                        }
-                    ];
+                    this.durationSummary = 0;
+                    this.logs = [];
                     this.logText = '';
                     this.groupedTasks = {};
                     this.tasks = [];
-                    this.summary = 777;
-                    this.moment = null;
-                    this.audio = new Audio('./assets/sound.mp3');
                     this.config = configService.getConfig();
-                    this.createClock();
-                    this.moment = moment;
+                    clockService.createClock(this.config.counter);
+                    this.createTaskExample();
                 }
-                ClockComponent.prototype.createClock = function () {
-                    var _this = this;
-                    var onEachSecond = function (time) {
-                        if (time == 0)
-                            _this.notify();
-                    };
-                    this.clock = this.clockService.createClock(this.config.counter, onEachSecond);
+                ClockComponent.prototype.clearState = function () {
+                    this.onResetTimer();
+                    this.logText = '';
                 };
-                ClockComponent.prototype.notify = function () {
-                    var _this = this;
-                    this.interval = setInterval(function () { return _this.playSound(); }, 2000);
-                    // send notification
+                ClockComponent.prototype.createTaskExample = function () {
+                    var text = 'Example, !tasks and #hashtags are highlighted.';
+                    var duration = 777;
+                    this.onSaveLog(text, duration);
                 };
-                ClockComponent.prototype.playSound = function () {
-                    this.audio.play();
-                };
-                ClockComponent.prototype.addOrUpdateTask = function (period, words) {
+                ClockComponent.prototype.addOrUpdateTask = function (duration, words) {
                     var _this = this;
                     words.forEach(function (s) {
                         _this.groupedTasks[s] = _this.groupedTasks[s] || { value: 0, count: 0, name: null };
-                        _this.groupedTasks[s].value += period;
+                        _this.groupedTasks[s].value += duration;
                         _this.groupedTasks[s].count++;
                         _this.groupedTasks[s].name = s;
                         if (_this.groupedTasks[s].value <= 0) {
@@ -100,75 +80,94 @@ System.register(['angular2/core', "./app.clock.service", "./app.config.service"]
                     }).join(delimiter);
                     return result;
                 };
-                ClockComponent.prototype.createId = function () {
-                    return Date.now().toString();
-                };
-                ClockComponent.prototype.updateSummary = function (period) {
-                    this.summary += period;
-                };
-                ClockComponent.prototype.getPeriod = function () {
-                    var time = this.clock.getTime();
-                    return this.config.counter - time;
+                ClockComponent.prototype.updateDurationSummary = function (duration) {
+                    console.info('updateDurationSummary:', typeof duration, duration);
+                    this.durationSummary += duration;
+                    if (this.durationSummary < 0) {
+                        this.durationSummary = 0;
+                    }
                 };
                 ClockComponent.prototype.updateTasks = function () {
                     var _this = this;
                     var keys = Object.keys(this.groupedTasks);
                     this.tasks = keys.map(function (s) { return _this.groupedTasks[s]; });
                 };
-                ClockComponent.prototype.onSaveLog = function () {
-                    if (this.logText) {
-                        var id = this.createId();
-                        var template = this.createTemplate(this.logText);
-                        var period = this.getPeriod();
-                        var log = { id: id, date: moment(), period: period, text: this.logText, template: template };
-                        this.logs.unshift(log);
-                        this.logText = '';
-                        this.onResetTimer();
-                        this.updateSummary(period);
-                        this.addOrUpdateTask(period, Object.keys(template.symbols));
+                ClockComponent.prototype.addLog = function (log) {
+                    this.logs.unshift(log);
+                };
+                ClockComponent.prototype.onSaveLog = function (text, duration) {
+                    console.info('onSaveLog:', text, duration);
+                    if (this.logText || (text && duration)) {
+                        text = text || this.logText;
+                        duration = duration || this.clockService.getDuration();
+                        var id = this.clockService.getTimestamp();
+                        var date = this.clockService.getDateTime();
+                        var template = this.createTemplate(text);
+                        this.addLog({ id: id, date: date, durationOld: duration, duration: duration, text: text, template: template, mode: 'view' });
+                        this.addOrUpdateTask(duration, Object.keys(template.symbols));
                         this.updateTasks();
+                        this.updateDurationSummary(duration);
+                        this.clearState();
                     }
                 };
-                ClockComponent.prototype.onDeleteLog = function (log) {
+                ClockComponent.prototype.deleteLog = function (id) {
                     var index = -1;
                     this.logs.forEach(function (x, i) {
-                        if (x.id === log.id) {
+                        if (x.id === id) {
                             index = i;
                         }
                     });
                     if (index !== -1) {
                         this.logs.splice(index, 1);
                     }
-                    this.addOrUpdateTask(-log.period, Object.keys(log.template.symbols));
-                    this.updateTasks();
-                    this.updateSummary(-log.period);
                 };
-                ClockComponent.prototype.onCopyLog = function (text) {
+                ClockComponent.prototype.onDeleteLog = function (log) {
+                    console.info('onDeleteLog:', JSON.stringify(log));
+                    this.deleteLog(log.id);
+                    this.addOrUpdateTask(-log.durationOld, Object.keys(log.template.symbols));
+                    this.updateTasks();
+                    this.updateDurationSummary(-log.durationOld);
+                };
+                ClockComponent.prototype.onCopyLogText = function (text) {
+                    console.info('onCopyLogText:', text);
                     this.logText = text;
                 };
-                /**
-                 * Time methods
-                 */
-                ClockComponent.prototype.onGetTime = function (value, metric) {
-                    return moment.duration(value, metric || 'seconds').asHours().toFixed(2);
+                ClockComponent.prototype.onEditLog = function (log) {
+                    console.info('onEditLog:', JSON.stringify(log));
+                    log.mode = 'edit';
+                };
+                ClockComponent.prototype.onUpdateLog = function (log) {
+                    console.info('onUpdateLog:', JSON.stringify(log));
+                    this.onDeleteLog(log);
+                    this.onSaveLog(log.text, log.duration);
+                };
+                ClockComponent.prototype.onLogDurationChange = function (log) {
+                    console.info('onLogDurationChange:', JSON.stringify(log));
+                    log.duration = parseInt(log.duration);
+                    if (!log.duration) {
+                        log.duration = log.durationOld;
+                    }
+                };
+                ClockComponent.prototype.onGetTime = function (duration, metric) {
+                    console.info('onGetTime:', duration, metric);
+                    return this.clockService.formatDurationAsHours(duration, metric || 'seconds');
                 };
                 ClockComponent.prototype.onStartTimer = function () {
-                    if (!this.clockStarted) {
-                        this.clock.start();
-                        this.clockStarted = true;
+                    console.info('onStartTimer');
+                    if (!this.clockService.isClockStarted()) {
+                        this.clockService.startClock();
                     }
                 };
                 ClockComponent.prototype.onStopTimer = function () {
-                    if (this.clockStarted) {
-                        this.clock.stop();
-                        this.clockStarted = false;
+                    console.info('onStopTimer');
+                    if (this.clockService.isClockStarted()) {
+                        this.clockService.stopClock();
                     }
                 };
                 ClockComponent.prototype.onResetTimer = function () {
+                    console.info('onResetTimer');
                     this.onStopTimer();
-                    clearInterval(this.interval);
-                    this.interval = null;
-                    this.createClock();
+                    this.clockService.createClock(this.config.counter);
                     if (this.config.sprint) {
                         this.onStartTimer();
                     }
@@ -177,7 +176,7 @@ System.register(['angular2/core', "./app.clock.service", "./app.config.service"]
                     core_1.Component({
                         selector: 'app',
                         templateUrl: './app/template.html',
-                        providers: [app_clock_service_1.ClockService, app_config_service_1.ConfigService]
+                        providers: [app_clock_service_1.ClockService, app_config_service_1.ConfigService, app_notification_service_1.NotificationService]
                     }), 
                     __metadata('design:paramtypes', [app_clock_service_1.ClockService, app_config_service_1.ConfigService])
                 ], ClockComponent);

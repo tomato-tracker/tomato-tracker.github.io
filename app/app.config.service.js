@@ -24,10 +24,13 @@ System.register(["angular2/core"], function(exports_1) {
                 }
                 ConfigService.prototype.getConfig = function () {
                     var params = this.parseUrl();
+                    console.log('params', params);
+                    console.log('window.location.search', window.location.search);
                     return {
                         counter: parseInt(params['counter']) || 1500,
                         sprint: !!params['sprint'],
-                        showBar: !!params['showBar']
+                        showBar: !!params['showBar'],
+                        day: moment().format('YYYY-MM-DD')
                     };
                 };
                 ConfigService.prototype.parseUrl = function () {
