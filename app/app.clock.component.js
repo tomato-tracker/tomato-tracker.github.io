@@ -1,7 +1,7 @@
 /**
  * Created by artem.kolosovich on 21.01.2016.
  */
-System.register(['angular2/core', "./app.clock.service", "./app.config.service", "./app.notification.service"], function(exports_1) {
+System.register(['angular2/core', "./app.clock.service", "./app.config.service", "./app.logger", "./app.storage", "./app.notification.service"], function(exports_1) {
     var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
         var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
         if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
@@ -11,7 +11,7 @@ System.register(['angular2/core', "./app.clock.service", "./app.config.service",
     var __metadata = (this && this.__metadata) || function (k, v) {
         if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
     };
-    var core_1, app_clock_service_1, app_config_service_1, app_notification_service_1;
+    var core_1, app_clock_service_1, app_config_service_1, app_logger_1, app_storage_1, app_notification_service_1;
     var ClockComponent;
     return {
         setters:[
@@ -24,23 +24,49 @@ System.register(['angular2/core', "./app.clock.service", "./app.config.service",
             function (app_config_service_1_1) {
                 app_config_service_1 = app_config_service_1_1;
             },
+            function (app_logger_1_1) {
+                app_logger_1 = app_logger_1_1;
+            },
+            function (app_storage_1_1) {
+                app_storage_1 = app_storage_1_1;
+            },
             function (app_notification_service_1_1) {
                 app_notification_service_1 = app_notification_service_1_1;
             }],
         execute: function() {
             ClockComponent = (function () {
-                function ClockComponent(clockService, configService) {
+                function ClockComponent(clockService, configService, appStorage) {
                     this.clockService = clockService;
                     this.configService = configService;
+                    this.appStorage = appStorage;
                     this.durationSummary = 0;
                     this.logs = [];
                     this.logText = '';
                     this.groupedTasks = {};
                     this.tasks = [];
                     this.config = configService.getConfig();
-                    clockService.createClock(this.config.counter);
-                    this.createTaskExample();
+                    this.clockService.createClock(this.config.counter);
+                    this.loadStorageData();
                 }
+                ClockComponent.prototype.loadStorageData = function () {
+                    var _this = this;
+                    var data = this.appStorage.load(this.config.day);
+                    if (data) {
+                        data.forEach(function (x) {
+                            x.date = _this.clockService.getDateTime(x.date);
+                            _this.addLog(x);
+                            _this.addOrUpdateTask(x.duration, Object.keys(x.template.symbols));
+                            _this.updateDurationSummary(x.duration);
+                        });
+                        this.updateTasks();
+                    }
+                    else {
+                        this.createTaskExample();
+                    }
+                };
+                ClockComponent.prototype.updateStorageData = function () {
+                    this.appStorage.save(this.config.day, this.logs);
+                };
                 ClockComponent.prototype.clearState = function () {
                     this.onResetTimer();
                     this.logText = '';
@@ -81,7 +107,6 @@ System.register(['angular2/core', "./app.clock.service", "./app.config.service",
                     return result;
                 };
                 ClockComponent.prototype.updateDurationSummary = function (duration) {
-                    console.info('updateDurationSummary:', typeof duration, duration);
                     this.durationSummary += duration;
                     if (this.durationSummary < 0) {
                         this.durationSummary = 0;
@@ -96,7 +121,6 @@ System.register(['angular2/core', "./app.clock.service", "./app.config.service",
                     this.logs.unshift(log);
                 };
                 ClockComponent.prototype.onSaveLog = function (text, duration) {
-                    console.info('onSaveLog:', text, duration);
                     if (this.logText || (text && duration)) {
                         text = text || this.logText;
                         duration = duration || this.clockService.getDuration();
@@ -107,6 +131,7 @@ System.register(['angular2/core', "./app.clock.service", "./app.config.service",
                         this.addOrUpdateTask(duration, Object.keys(template.symbols));
                         this.updateTasks();
                         this.updateDurationSummary(duration);
+                        this.updateStorageData();
                         this.clearState();
                     }
                 };
@@ -122,63 +147,115 @@ System.register(['angular2/core', "./app.clock.service", "./app.config.service",
                     }
                 };
                 ClockComponent.prototype.onDeleteLog = function (log) {
-                    console.info('onDeleteLog:', JSON.stringify(log));
                     this.deleteLog(log.id);
                     this.addOrUpdateTask(-log.durationOld, Object.keys(log.template.symbols));
                     this.updateTasks();
                     this.updateDurationSummary(-log.durationOld);
+                    this.updateStorageData();
                 };
                 ClockComponent.prototype.onCopyLogText = function (text) {
-                    console.info('onCopyLogText:', text);
                     this.logText = text;
                 };
                 ClockComponent.prototype.onEditLog = function (log) {
-                    console.info('onEditLog:', JSON.stringify(log));
                     log.mode = 'edit';
                 };
                 ClockComponent.prototype.onUpdateLog = function (log) {
-                    console.info('onUpdateLog:', JSON.stringify(log));
                     this.onDeleteLog(log);
                     this.onSaveLog(log.text, log.duration);
                 };
                 ClockComponent.prototype.onLogDurationChange = function (log) {
-                    console.info('onLogDurationChange:', JSON.stringify(log));
                     log.duration = parseInt(log.duration);
                     if (!log.duration) {
                         log.duration = log.durationOld;
                     }
                 };
                 ClockComponent.prototype.onGetTime = function (duration, metric) {
-                    console.info('onGetTime:', duration, metric);
                     return this.clockService.formatDurationAsHours(duration, metric || 'seconds');
                 };
                 ClockComponent.prototype.onStartTimer = function () {
-                    console.info('onStartTimer');
                     if (!this.clockService.isClockStarted()) {
                         this.clockService.startClock();
                     }
                 };
                 ClockComponent.prototype.onStopTimer = function () {
-                    console.info('onStopTimer');
                     if (this.clockService.isClockStarted()) {
                         this.clockService.stopClock();
                     }
                 };
                 ClockComponent.prototype.onResetTimer = function () {
-                    console.info('onResetTimer');
                     this.onStopTimer();
                     this.clockService.createClock(this.config.counter);
                     if (this.config.sprint) {
                         this.onStartTimer();
                     }
                 };
+                __decorate([
+                    app_logger_1.Logger, 
+                    __metadata('design:type', Function), 
+                    __metadata('design:paramtypes', [String, Number]), 
+                    __metadata('design:returntype', void 0)
+                ], ClockComponent.prototype, "onSaveLog", null);
+                __decorate([
+                    app_logger_1.Logger, 
+                    __metadata('design:type', Function), 
+                    __metadata('design:paramtypes', [Object]), 
+                    __metadata('design:returntype', void 0)
+                ], ClockComponent.prototype, "onDeleteLog", null);
+                __decorate([
+                    app_logger_1.Logger, 
+                    __metadata('design:type', Function), 
+                    __metadata('design:paramtypes', [String]), 
+                    __metadata('design:returntype', void 0)
+                ], ClockComponent.prototype, "onCopyLogText", null);
+                __decorate([
+                    app_logger_1.Logger, 
+                    __metadata('design:type', Function), 
+                    __metadata('design:paramtypes', [Object]), 
+                    __metadata('design:returntype', void 0)
+                ], ClockComponent.prototype, "onEditLog", null);
+                __decorate([
+                    app_logger_1.Logger, 
+                    __metadata('design:type', Function), 
+                    __metadata('design:paramtypes', [Object]), 
+                    __metadata('design:returntype', void 0)
+                ], ClockComponent.prototype, "onUpdateLog", null);
+                __decorate([
+                    app_logger_1.Logger, 
+                    __metadata('design:type', Function), 
+                    __metadata('design:paramtypes', [Object]), 
+                    __metadata('design:returntype', void 0)
+                ], ClockComponent.prototype, "onLogDurationChange", null);
+                __decorate([
+                    app_logger_1.Logger, 
+                    __metadata('design:type', Function), 
+                    __metadata('design:paramtypes', [Number, String]), 
+                    __metadata('design:returntype', String)
+                ], ClockComponent.prototype, "onGetTime", null);
+                __decorate([
+                    app_logger_1.Logger, 
+                    __metadata('design:type', Function), 
+                    __metadata('design:paramtypes', []), 
+                    __metadata('design:returntype', void 0)
+                ], ClockComponent.prototype, "onStartTimer", null);
+                __decorate([
+                    app_logger_1.Logger, 
+                    __metadata('design:type', Function), 
+                    __metadata('design:paramtypes', []), 
+                    __metadata('design:returntype', void 0)
+                ], ClockComponent.prototype, "onStopTimer", null);
+                __decorate([
+                    app_logger_1.Logger, 
+                    __metadata('design:type', Function), 
+                    __metadata('design:paramtypes', []), 
+                    __metadata('design:returntype', void 0)
+                ], ClockComponent.prototype, "onResetTimer", null);
                 ClockComponent = __decorate([
                     core_1.Component({
                         selector: 'app',
                         templateUrl: './app/template.html',
-                        providers: [app_clock_service_1.ClockService, app_config_service_1.ConfigService, app_notification_service_1.NotificationService]
+                        providers: [app_clock_service_1.ClockService, app_config_service_1.ConfigService, app_storage_1.AppStorage, app_notification_service_1.NotificationService]
                     }), 
-                    __metadata('design:paramtypes', [app_clock_service_1.ClockService, app_config_service_1.ConfigService])
+                    __metadata('design:paramtypes', [app_clock_service_1.ClockService, app_config_service_1.ConfigService, app_storage_1.AppStorage])
                 ], ClockComponent);
                 return ClockComponent;
             })();
